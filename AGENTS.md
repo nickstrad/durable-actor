@@ -57,5 +57,6 @@ concurrency is modeled as scheduled events rather than left to uncontrolled goro
 
 ## Go conventions
 
-- Run `gofmt -w .`, `go vet ./...` and `go test ./...` before finishing any change.
+- Run `make check` (gofmt, `go vet`, and `make test`, which runs every test 100 times in
+  shuffled order) before finishing any change.
 - Standard library only, unless a day calls for a dependency (e.g. SQLite on Day 10).
