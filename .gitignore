@@ -1,0 +1,25 @@
+# Binaries
+/durable-actor
+*.exe
+*.dll
+*.so
+*.dylib
+/bin/
+
+# Test and coverage output
+*.test
+*.out
+coverage.*
+
+# Go workspace
+go.work
+go.work.sum
+
+# Dependencies
+vendor/
+
+# Env and editor files
+.env
+.idea/
+.vscode/
+.DS_Store
