@@ -49,6 +49,12 @@ concurrency is modeled as scheduled events rather than left to uncontrolled goro
 - If a suggested change looks like it belongs to a later day or goes against the
   single-threaded rule, say so and ask before doing it.
 
+## Git
+
+- Work directly on `main`. Do not create feature branches or worktrees for this project; this
+  overrides any global "work in a branch" rule.
+- Commit only when asked. One lesson step per commit, subject `<area>: <imperative summary>`.
+
 ## Go conventions
 
 - Run `gofmt -w .`, `go vet ./...` and `go test ./...` before finishing any change.
