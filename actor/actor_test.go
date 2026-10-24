@@ -1,13 +1,15 @@
-package main
+package actor
 
 import (
 	"testing"
 	"time"
+
+	"github.com/nickstrad/durable-actor/sim"
 )
 
 func TestActorTTLAtExactBoundary(t *testing.T) {
 	start := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
-	clock := NewManualClock(start)
+	clock := sim.NewManualClock(start)
 	actor := NewActor(clock)
 
 	actor.Put("session", "active", 10*time.Second)
@@ -34,7 +36,7 @@ func TestActorTTLAtExactBoundary(t *testing.T) {
 }
 
 func TestActorTTLResetsOnOverwrite(t *testing.T) {
-	clock := NewManualClock(time.Unix(0, 0))
+	clock := sim.NewManualClock(time.Unix(0, 0))
 	actor := NewActor(clock)
 
 	actor.Put("job", "queued", 5*time.Second)
@@ -50,5 +52,49 @@ func TestActorTTLResetsOnOverwrite(t *testing.T) {
 			"overwrite should reset expiry, got (%q, %v)",
 			got, ok,
 		)
+	}
+}
+
+func TestActorExpiryDrivenByScheduler(t *testing.T) {
+	const ttl = 5 * time.Second
+	start := time.Unix(0, 0)
+	sched := sim.NewScheduler(start)
+	actor := NewActor(sched)
+
+	var (
+		before   string
+		beforeOK bool
+		atTTLOK  bool
+	)
+
+	sched.After(0, func() {
+		actor.Put("session", "active", ttl)
+	})
+
+	sched.After(ttl-time.Second, func() {
+		before, beforeOK = actor.Get("session")
+	})
+
+	sched.After(ttl, func() {
+		_, atTTLOK = actor.Get("session")
+	})
+
+	deadline := start.Add(ttl)
+	n := sched.RunUntil(deadline)
+
+	if n != 3 {
+		t.Errorf("ran %d events; want 3", n)
+	}
+
+	if !beforeOK || before != "active" {
+		t.Errorf("1s before expiry: got (%q, %v); want (active, true)", before, beforeOK)
+	}
+
+	if atTTLOK {
+		t.Error("at expiry: key still present; want missing")
+	}
+
+	if got := sched.Now(); !got.Equal(deadline) {
+		t.Errorf("Now() = %s; want %s", got, deadline)
 	}
 }

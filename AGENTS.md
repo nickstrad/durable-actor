@@ -21,8 +21,8 @@ the history stays readable as a course.
 | 11  | Property-based tests and Go fuzzing    | Discover invariant violations     |
 | 12  | Trace replay and failure minimization  | Reproduce and debug failures      |
 
-**Current position:** Days 1–2 are done (`actor.go`: `Clock`, `ManualClock`, TTL `Actor`;
-`scheduler.go`: virtual-time `Scheduler`). Update this line as each day lands.
+**Current position:** Days 1–2 are done (`sim/clock.go`: `ManualClock`; `actor/actor.go`: `Clock`, TTL `Actor`;
+`sim/scheduler.go`: virtual-time `Scheduler`). Update this line as each day lands.
 
 ## Core design rule: single-threaded simulator
 

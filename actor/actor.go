@@ -1,30 +1,11 @@
-package main
+// Package actor implements a key-value actor with expiring keys.
+package actor
 
 import "time"
 
 // Clock abstracts the source of time.
 type Clock interface {
 	Now() time.Time
-}
-
-// ManualClock is controlled by the simulation.
-type ManualClock struct {
-	now time.Time
-}
-
-func NewManualClock(start time.Time) *ManualClock {
-	return &ManualClock{now: start}
-}
-
-func (c *ManualClock) Now() time.Time {
-	return c.now
-}
-
-func (c *ManualClock) Advance(d time.Duration) {
-	if d < 0 {
-		panic("cannot move simulated time backwards")
-	}
-	c.now = c.now.Add(d)
 }
 
 type entry struct {

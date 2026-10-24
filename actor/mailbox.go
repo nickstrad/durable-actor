@@ -1,6 +1,13 @@
-package main
+package actor
 
 import "time"
+
+// Scheduler runs actions at a later point in virtual time.
+// sim.Scheduler implements it.
+type Scheduler interface {
+	Clock
+	After(delay time.Duration, action func())
+}
 
 type Command interface {
 	isCommand()
@@ -24,16 +31,16 @@ func (GetCommand) isCommand() {}
 // MailboxActor processes commands through
 // a scheduler-controlled FIFO mailbox.
 type MailboxActor struct {
-	sim           *Scheduler
+	sched         Scheduler
 	state         *Actor
 	inbox         []Command
 	pumpScheduled bool
 }
 
-func NewMailboxActor(sim *Scheduler) *MailboxActor {
+func NewMailboxActor(sched Scheduler) *MailboxActor {
 	return &MailboxActor{
-		sim:   sim,
-		state: NewActor(sim),
+		sched: sched,
+		state: NewActor(sched),
 	}
 }
 
@@ -43,7 +50,7 @@ func (a *MailboxActor) Send(cmd Command) {
 
 	if !a.pumpScheduled {
 		a.pumpScheduled = true
-		a.sim.After(0, a.processOne)
+		a.sched.After(0, a.processOne)
 	}
 }
 
@@ -68,7 +75,7 @@ func (a *MailboxActor) processOne() {
 
 	// Schedule the next command, if any.
 	if len(a.inbox) > 0 {
-		a.sim.After(0, a.processOne)
+		a.sched.After(0, a.processOne)
 	} else {
 		a.pumpScheduled = false
 	}
