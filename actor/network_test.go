@@ -157,3 +157,40 @@ func TestSeededNetworkIsReproducible(t *testing.T) {
 		t.Fatalf("seed %d delayed no packets", seed)
 	}
 }
+
+func TestPerPacketDelayChangesDeliveryOrder(t *testing.T) {
+	start := time.Unix(0, 0)
+	sched := sim.NewScheduler(start)
+	actor := NewMailboxActor(sched)
+
+	// Slow down the first packet so it arrives after the second.
+	net := NewSimNetwork(sched, func(p Packet) Delivery {
+		delay := 10 * time.Millisecond
+		if p.ID == 1 {
+			delay = 100 * time.Millisecond
+		}
+		return Delivery{Delay: delay}
+	})
+	net.Register("jobs", actor)
+
+	net.Send("client", "jobs", PutCommand{Key: "state", Value: "first", TTL: time.Hour})
+	net.Send("client", "jobs", PutCommand{Key: "state", Value: "second", TTL: time.Hour})
+
+	sched.RunUntil(start.Add(100 * time.Millisecond))
+
+	want := []NetworkEvent{
+		{At: start, Kind: NetworkSend, ID: 1},
+		{At: start, Kind: NetworkSend, ID: 2},
+		{At: start.Add(10 * time.Millisecond), Kind: NetworkDeliver, ID: 2},
+		{At: start.Add(100 * time.Millisecond), Kind: NetworkDeliver, ID: 1},
+	}
+
+	if got := net.Events(); !slices.Equal(got, want) {
+		t.Fatalf("events:\ngot  %v\nwant %v", got, want)
+	}
+
+	// The write sent first lands last, so it wins.
+	if v, ok := readNow(t, sched, actor, "state"); !ok || v != "first" {
+		t.Fatalf("state: got (%q, %v); want (\"first\", true)", v, ok)
+	}
+}
