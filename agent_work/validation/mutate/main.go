@@ -45,9 +45,9 @@ const (
 	workerStart    = "w.starts[req.SandboxID]++"
 	workerReply    = "\tw.net.Send(w.address, req.ReplyTo, reply)\n"
 	ctrlNoop       = "\tif _, exists := c.requests[key]; exists {\n\t\treturn\n\t}\n"
-	ctrlDeadline   = "\tc.sched.After(c.timeout, func() {\n\t\tif r.status == Pending {\n\t\t\tr.status = TimedOut\n\t\t}\n\t})\n\n\tc.send(r)\n"
-	ctrlRetry      = "\tc.sched.After(c.retryEvery, func() {\n\t\tif r.status == Pending {\n\t\t\tc.send(r)\n\t\t}\n\t})\n"
-	ctrlFilter     = "\tif !ok || r.status != Pending {\n\t\treturn\n\t}\n"
+	ctrlDeadline   = "\tc.sched.After(c.timeout, func() {\n\t\tif r.status == StartPending {\n\t\t\tr.status = StartTimedOut\n\t\t}\n\t})\n\n\tc.send(r)\n"
+	ctrlRetry      = "\tc.sched.After(c.retryEvery, func() {\n\t\tif r.status == StartPending {\n\t\t\tc.send(r)\n\t\t}\n\t})\n"
+	ctrlFilter     = "\tif !ok || r.status != StartPending {\n\t\treturn\n\t}\n"
 	ctrlResultOK   = "\tif !ok {\n\t\tpanic(\"unknown request\")\n\t}\n"
 	mbHandle       = "\ta.handle(cmd)\n"
 	mbNext         = "\tif len(a.inbox) > 0 {\n\t\ta.sched.After(0, a.processOne)\n\t} else {\n\t\ta.pumpScheduled = false\n\t}\n"
@@ -101,16 +101,16 @@ var mutants = []mutant{
 	{"C02 Start never registers the request", "controller.go", [][2]string{{"\tc.requests[key] = r\n", "\n"}}},
 	{"C03 deadline never fires (no timeout event)", "controller.go", [][2]string{{ctrlDeadline, "\tc.send(r)\n"}}},
 	{"C04 deadline marks TimedOut regardless of status", "controller.go", [][2]string{{ctrlDeadline,
-		"\tc.sched.After(c.timeout, func() {\n\t\tr.status = TimedOut\n\t})\n\n\tc.send(r)\n"}}},
-	{"C05 deadline marks Rejected instead of TimedOut", "controller.go", [][2]string{{"\t\t\tr.status = TimedOut\n", "\t\t\tr.status = Rejected\n"}}},
+		"\tc.sched.After(c.timeout, func() {\n\t\tr.status = StartTimedOut\n\t})\n\n\tc.send(r)\n"}}},
+	{"C05 deadline marks Rejected instead of TimedOut", "controller.go", [][2]string{{"\t\t\tr.status = StartTimedOut\n", "\t\t\tr.status = StartRejected\n"}}},
 	{"C06 deadline uses retryEvery", "controller.go", [][2]string{{"\tc.sched.After(c.timeout, func() {\n", "\tc.sched.After(c.retryEvery, func() {\n"}}},
 	{"C07 deadline scheduled after the first send (reply at deadline wins)", "controller.go", [][2]string{{ctrlDeadline,
-		"\tc.send(r)\n\n\tc.sched.After(c.timeout, func() {\n\t\tif r.status == Pending {\n\t\t\tr.status = TimedOut\n\t\t}\n\t})\n"}}},
+		"\tc.send(r)\n\n\tc.sched.After(c.timeout, func() {\n\t\tif r.status == StartPending {\n\t\t\tr.status = StartTimedOut\n\t\t}\n\t})\n"}}},
 	{"C08 deadline is one retry interval longer", "controller.go", [][2]string{{"\tc.sched.After(c.timeout, func() {\n", "\tc.sched.After(c.timeout+c.retryEvery, func() {\n"}}},
 	{"C09 never retries", "controller.go", [][2]string{{ctrlRetry, "\n"}}},
 	{"C10 retries regardless of status", "controller.go", [][2]string{{ctrlRetry, "\tc.sched.After(c.retryEvery, func() {\n\t\tc.send(r)\n\t})\n"}}},
 	{"C11 retries after timeout too (!= Acknowledged)", "controller.go", [][2]string{{ctrlRetry,
-		"\tc.sched.After(c.retryEvery, func() {\n\t\tif r.status != Acknowledged && r.status != Rejected {\n\t\t\tc.send(r)\n\t\t}\n\t})\n"}}},
+		"\tc.sched.After(c.retryEvery, func() {\n\t\tif r.status != StartAcknowledged && r.status != StartRejected {\n\t\t\tc.send(r)\n\t\t}\n\t})\n"}}},
 	{"C12 retry interval doubles each attempt", "controller.go", [][2]string{{"\tc.sched.After(c.retryEvery, func() {\n", "\tc.sched.After(c.retryEvery*time.Duration(r.attempts), func() {\n"}}},
 	{"C13 attempts not counted", "controller.go", [][2]string{{"\tr.attempts++\n", "\n"}}},
 	{"C14 attempts not counted for retries", "controller.go", [][2]string{{"\tr.attempts++\n", "\tif r.attempts == 0 {\n\t\tr.attempts++\n\t}\n"}}},
@@ -119,15 +119,15 @@ var mutants = []mutant{
 
 	// controller.go: controller receive and Result.
 	{"C17 receive: Ack and Conflict statuses swapped", "controller.go", [][2]string{
-		{"key, status = requestKey{m.RequestID, m.SandboxID}, Acknowledged", "key, status = requestKey{m.RequestID, m.SandboxID}, Rejected"},
-		{"key, status = requestKey{m.RequestID, m.SandboxID}, Rejected\n\n\tdefault", "key, status = requestKey{m.RequestID, m.SandboxID}, Acknowledged\n\n\tdefault"}}},
-	{"C18 receive: Conflict treated as Ack", "controller.go", [][2]string{{"key, status = requestKey{m.RequestID, m.SandboxID}, Rejected", "key, status = requestKey{m.RequestID, m.SandboxID}, Acknowledged"}}},
+		{"key, status = requestKey{m.RequestID, m.SandboxID}, StartAcknowledged", "key, status = requestKey{m.RequestID, m.SandboxID}, StartRejected"},
+		{"key, status = requestKey{m.RequestID, m.SandboxID}, StartRejected\n\n\tdefault", "key, status = requestKey{m.RequestID, m.SandboxID}, StartAcknowledged\n\n\tdefault"}}},
+	{"C18 receive: Conflict treated as Ack", "controller.go", [][2]string{{"key, status = requestKey{m.RequestID, m.SandboxID}, StartRejected", "key, status = requestKey{m.RequestID, m.SandboxID}, StartAcknowledged"}}},
 	{"C19 receive: late replies overwrite TimedOut", "controller.go", [][2]string{{ctrlFilter, "\tif !ok {\n\t\treturn\n\t}\n"}}},
-	{"C20 receive: unknown replies dereference nil", "controller.go", [][2]string{{ctrlFilter, "\tif (!ok && false) || r.status != Pending {\n\t\treturn\n\t}\n"}}},
-	{"C21 receive: replies only overwrite TimedOut", "controller.go", [][2]string{{ctrlFilter, "\tif !ok || r.status != Pending && r.status != TimedOut {\n\t\treturn\n\t}\n"}}},
+	{"C20 receive: unknown replies dereference nil", "controller.go", [][2]string{{ctrlFilter, "\tif (!ok && false) || r.status != StartPending {\n\t\treturn\n\t}\n"}}},
+	{"C21 receive: replies only overwrite TimedOut", "controller.go", [][2]string{{ctrlFilter, "\tif !ok || r.status != StartPending && r.status != StartTimedOut {\n\t\treturn\n\t}\n"}}},
 	{"C22 receive: status never set", "controller.go", [][2]string{{"\tr.status = status\n", "\t_ = status\n"}}},
-	{"C23 receive: Conflict ignored (no case)", "controller.go", [][2]string{{"\tcase StartConflict:\n\t\tkey, status = requestKey{m.RequestID, m.SandboxID}, Rejected\n", "\tcase StartConflict:\n\t\treturn\n"}}},
-	{"C24 Result returns (Pending, 0) for unknown request", "controller.go", [][2]string{{ctrlResultOK, "\tif !ok {\n\t\treturn Pending, 0\n\t}\n"}}},
+	{"C23 receive: Conflict ignored (no case)", "controller.go", [][2]string{{"\tcase StartConflict:\n\t\tkey, status = requestKey{m.RequestID, m.SandboxID}, StartRejected\n", "\tcase StartConflict:\n\t\treturn\n"}}},
+	{"C24 Result returns (Pending, 0) for unknown request", "controller.go", [][2]string{{ctrlResultOK, "\tif !ok {\n\t\treturn StartPending, 0\n\t}\n"}}},
 	{"C25 Result ignores sandbox ID", "controller.go", [][2]string{{"\tr, ok := c.requests[requestKey{requestID, sandboxID}]\n",
 		"\tvar r *startRequest\n\tvar ok bool\n\tfor k, v := range c.requests {\n\t\tif k.requestID == requestID && (!ok || k.sandboxID > r.key.sandboxID) {\n\t\t\tr, ok = v, true\n\t\t}\n\t}\n\t_ = sandboxID\n"}}},
 	{"C26 constructor allows non-positive intervals", "controller.go", [][2]string{{"\tif retryEvery <= 0 || timeout <= 0 {\n", "\tif false {\n"}}},

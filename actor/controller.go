@@ -2,13 +2,14 @@ package actor
 
 import "time"
 
+// StartStatus is the controller's view of one start request.
 type StartStatus string
 
 const (
-	Pending      StartStatus = "pending"
-	Acknowledged StartStatus = "acknowledged"
-	TimedOut     StartStatus = "timed_out"
-	Rejected     StartStatus = "rejected"
+	StartPending      StartStatus = "pending"
+	StartAcknowledged StartStatus = "acknowledged"
+	StartTimedOut     StartStatus = "timed_out"
+	StartRejected     StartStatus = "rejected"
 )
 
 // requestKey identifies one start request. A request ID reused for a
@@ -76,14 +77,14 @@ func (c *SandboxController) Start(requestID, sandboxID string) {
 		return
 	}
 
-	r := &startRequest{key: key, status: Pending}
+	r := &startRequest{key: key, status: StartPending}
 	c.requests[key] = r
 
 	// The deadline is its own event. It is scheduled before any reply
 	// can arrive, so at the same instant it runs first.
 	c.sched.After(c.timeout, func() {
-		if r.status == Pending {
-			r.status = TimedOut
+		if r.status == StartPending {
+			r.status = StartTimedOut
 		}
 	})
 
@@ -101,7 +102,7 @@ func (c *SandboxController) send(r *startRequest) {
 	})
 
 	c.sched.After(c.retryEvery, func() {
-		if r.status == Pending {
+		if r.status == StartPending {
 			c.send(r)
 		}
 	})
@@ -113,10 +114,10 @@ func (c *SandboxController) receive(cmd Command) {
 
 	switch m := cmd.(type) {
 	case StartAck:
-		key, status = requestKey{m.RequestID, m.SandboxID}, Acknowledged
+		key, status = requestKey{m.RequestID, m.SandboxID}, StartAcknowledged
 
 	case StartConflict:
-		key, status = requestKey{m.RequestID, m.SandboxID}, Rejected
+		key, status = requestKey{m.RequestID, m.SandboxID}, StartRejected
 
 	default:
 		panic("unsupported command")
@@ -124,7 +125,7 @@ func (c *SandboxController) receive(cmd Command) {
 
 	// Ignore unknown and late replies.
 	r, ok := c.requests[key]
-	if !ok || r.status != Pending {
+	if !ok || r.status != StartPending {
 		return
 	}
 

@@ -12,7 +12,7 @@ import (
 
 // readNow sends a Get straight to the actor's mailbox, skipping the
 // network, and runs the scheduler without advancing time.
-func readNow(t *testing.T, sched *sim.Scheduler, a *MailboxActor, key string) (string, bool) {
+func readNow(t *testing.T, sched *sim.Scheduler, a *Mailbox, key string) (string, bool) {
 	t.Helper()
 
 	var value string
@@ -36,7 +36,7 @@ func readNow(t *testing.T, sched *sim.Scheduler, a *MailboxActor, key string) (s
 
 func TestNetworkDeliversAtVirtualDeadline(t *testing.T) {
 	sched := sim.NewScheduler(time.Unix(0, 0))
-	actor := NewMailboxActor(sched)
+	actor := NewKVMailbox(sched)
 
 	net := NewSimNetwork(sched, func(Packet) Delivery {
 		return Delivery{Delay: 250 * time.Millisecond}
@@ -68,7 +68,7 @@ func TestNetworkDeliversAtVirtualDeadline(t *testing.T) {
 func TestNetworkDropsPackets(t *testing.T) {
 	start := time.Unix(0, 0)
 	sched := sim.NewScheduler(start)
-	actor := NewMailboxActor(sched)
+	actor := NewKVMailbox(sched)
 
 	// Drop the first packet only.
 	net := NewSimNetwork(sched, func(p Packet) Delivery {
@@ -105,7 +105,7 @@ func TestNetworkDropsPackets(t *testing.T) {
 // lossy, slow network and returns the network events.
 func runSeededNetwork(seed int64) []NetworkEvent {
 	sched := sim.NewScheduler(time.Unix(0, 0))
-	actor := NewMailboxActor(sched)
+	actor := NewKVMailbox(sched)
 	rng := rand.New(rand.NewSource(seed))
 
 	net := NewSimNetwork(sched, SeededDeliveryPolicy(rng, 30, 500*time.Millisecond))
@@ -161,7 +161,7 @@ func TestSeededNetworkIsReproducible(t *testing.T) {
 func TestPerPacketDelayChangesDeliveryOrder(t *testing.T) {
 	start := time.Unix(0, 0)
 	sched := sim.NewScheduler(start)
-	actor := NewMailboxActor(sched)
+	actor := NewKVMailbox(sched)
 
 	// Slow down the first packet so it arrives after the second.
 	net := NewSimNetwork(sched, func(p Packet) Delivery {

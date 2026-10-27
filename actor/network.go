@@ -24,6 +24,7 @@ type Delivery struct {
 // DeliveryPolicy picks the Delivery for each packet.
 type DeliveryPolicy func(Packet) Delivery
 
+// NetworkEventKind says what happened to a packet.
 type NetworkEventKind int
 
 const (
@@ -48,7 +49,7 @@ type NetworkEvent struct {
 // and loss are under the simulation's control.
 type SimNetwork struct {
 	sched  Scheduler
-	actors map[string]*MailboxActor
+	actors map[string]*Mailbox
 	policy DeliveryPolicy
 	nextID uint64
 	events []NetworkEvent
@@ -69,13 +70,13 @@ func NewSimNetwork(sched Scheduler, policy DeliveryPolicy) *SimNetwork {
 
 	return &SimNetwork{
 		sched:  sched,
-		actors: make(map[string]*MailboxActor),
+		actors: make(map[string]*Mailbox),
 		policy: policy,
 	}
 }
 
 // Register connects an actor to the network under name.
-func (n *SimNetwork) Register(name string, a *MailboxActor) {
+func (n *SimNetwork) Register(name string, a *Mailbox) {
 	if a == nil {
 		panic("nil actor")
 	}

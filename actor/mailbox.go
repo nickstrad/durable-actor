@@ -1,12 +1,14 @@
 package actor
 
+// Command is a message an actor can receive. Only types in this
+// package implement it.
 type Command interface {
 	isCommand()
 }
 
-// MailboxActor processes commands through
+// Mailbox processes commands through
 // a scheduler-controlled FIFO mailbox.
-type MailboxActor struct {
+type Mailbox struct {
 	sched         Scheduler
 	handle        func(Command)
 	inbox         []Command
@@ -15,19 +17,19 @@ type MailboxActor struct {
 
 // NewMailbox returns a mailbox that passes each command to handle,
 // one at a time, in arrival order.
-func NewMailbox(sched Scheduler, handle func(Command)) *MailboxActor {
+func NewMailbox(sched Scheduler, handle func(Command)) *Mailbox {
 	if handle == nil {
 		panic("nil handler")
 	}
 
-	return &MailboxActor{
+	return &Mailbox{
 		sched:  sched,
 		handle: handle,
 	}
 }
 
 // Send queues a command without executing it.
-func (a *MailboxActor) Send(cmd Command) {
+func (a *Mailbox) Send(cmd Command) {
 	a.inbox = append(a.inbox, cmd)
 
 	if !a.pumpScheduled {
@@ -37,7 +39,7 @@ func (a *MailboxActor) Send(cmd Command) {
 }
 
 // processOne handles exactly one command.
-func (a *MailboxActor) processOne() {
+func (a *Mailbox) processOne() {
 	cmd := a.inbox[0]
 	a.inbox = a.inbox[1:]
 

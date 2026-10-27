@@ -13,6 +13,7 @@ type Actor struct {
 	data  map[string]entry
 }
 
+// NewActor returns an empty Actor that reads time from clock.
 func NewActor(clock Clock) *Actor {
 	return &Actor{
 		clock: clock,
@@ -20,6 +21,7 @@ func NewActor(clock Clock) *Actor {
 	}
 }
 
+// Put stores value under key until ttl has passed. ttl must be positive.
 func (a *Actor) Put(key, value string, ttl time.Duration) {
 	if ttl <= 0 {
 		panic("ttl must be positive")
@@ -31,6 +33,7 @@ func (a *Actor) Put(key, value string, ttl time.Duration) {
 	}
 }
 
+// Get returns the value for key, or false if it is missing or expired.
 func (a *Actor) Get(key string) (string, bool) {
 	e, ok := a.data[key]
 	if !ok {

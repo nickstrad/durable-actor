@@ -114,7 +114,7 @@ func runScenario(t *testing.T, seed int64) {
 	t.Helper()
 
 	sched := sim.NewScheduler(time.Unix(0, 0))
-	actor := NewMailboxActor(sched)
+	actor := NewKVMailbox(sched)
 	model := newReferenceModel()
 
 	var trace []string

@@ -2,6 +2,7 @@ package actor
 
 import "time"
 
+// PutCommand stores Value under Key for TTL.
 type PutCommand struct {
 	Key   string
 	Value string
@@ -10,6 +11,7 @@ type PutCommand struct {
 
 func (PutCommand) isCommand() {}
 
+// GetCommand reads Key and passes the result to Reply, if set.
 type GetCommand struct {
 	Key   string
 	Reply func(value string, found bool)
@@ -17,8 +19,8 @@ type GetCommand struct {
 
 func (GetCommand) isCommand() {}
 
-// NewMailboxActor returns a mailbox in front of a TTL key/value Actor.
-func NewMailboxActor(sched Scheduler) *MailboxActor {
+// NewKVMailbox returns a mailbox in front of a TTL key/value Actor.
+func NewKVMailbox(sched Scheduler) *Mailbox {
 	state := NewActor(sched)
 
 	return NewMailbox(sched, func(cmd Command) {

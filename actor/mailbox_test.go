@@ -10,7 +10,7 @@ import (
 
 func TestMailboxIsDeferredAndFIFO(t *testing.T) {
 	sched := sim.NewScheduler(time.Unix(0, 0))
-	actor := NewMailboxActor(sched)
+	actor := NewKVMailbox(sched)
 
 	var reads []string
 	record := func(v string, ok bool) {
@@ -69,7 +69,7 @@ func TestMailboxIsDeferredAndFIFO(t *testing.T) {
 
 func TestSameTimeArrivalsPreserveOrder(t *testing.T) {
 	sched := sim.NewScheduler(time.Unix(0, 0))
-	actor := NewMailboxActor(sched)
+	actor := NewKVMailbox(sched)
 
 	var got string
 
@@ -111,7 +111,7 @@ func TestSameTimeArrivalsPreserveOrder(t *testing.T) {
 
 func TestCallbackEnqueuesAfterExistingWork(t *testing.T) {
 	sched := sim.NewScheduler(time.Unix(0, 0))
-	actor := NewMailboxActor(sched)
+	actor := NewKVMailbox(sched)
 
 	var got string
 

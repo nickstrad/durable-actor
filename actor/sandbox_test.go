@@ -32,7 +32,7 @@ func TestLostAckRetriesWithoutDoubleStarting(t *testing.T) {
 	sched.RunUntil(start.Add(200 * time.Millisecond))
 
 	status, attempts := controller.Result("req-123", "sandbox-123")
-	if status != Acknowledged || attempts != 2 {
+	if status != StartAcknowledged || attempts != 2 {
 		t.Fatalf("got (%s, %d attempts); want (acknowledged, 2)", status, attempts)
 	}
 
@@ -61,7 +61,7 @@ func TestTimeoutDoesNotProveFailure(t *testing.T) {
 	sched.RunUntil(start.Add(200 * time.Millisecond))
 
 	status, attempts := controller.Result("req-123", "sandbox-123")
-	if status != TimedOut || attempts != 3 {
+	if status != StartTimedOut || attempts != 3 {
 		t.Fatalf("got (%s, %d attempts); want (timed_out, 3)", status, attempts)
 	}
 
@@ -100,11 +100,11 @@ func TestReusedRequestIDIsRejected(t *testing.T) {
 		t.Fatalf("sent %d start requests; want 2", requests)
 	}
 
-	if status, attempts := controller.Result("req-1", "sandbox-a"); status != Acknowledged || attempts != 1 {
+	if status, attempts := controller.Result("req-1", "sandbox-a"); status != StartAcknowledged || attempts != 1 {
 		t.Fatalf("sandbox-a: got (%s, %d attempts); want (acknowledged, 1)", status, attempts)
 	}
 
-	if status, attempts := controller.Result("req-1", "sandbox-b"); status != Rejected || attempts != 1 {
+	if status, attempts := controller.Result("req-1", "sandbox-b"); status != StartRejected || attempts != 1 {
 		t.Fatalf("sandbox-b: got (%s, %d attempts); want (rejected, 1)", status, attempts)
 	}
 
@@ -142,7 +142,7 @@ func TestLateAckDoesNotOverrideTimeout(t *testing.T) {
 	sched.RunUntil(start.Add(300 * time.Millisecond))
 
 	status, attempts := controller.Result("req-123", "sandbox-123")
-	if status != TimedOut || attempts != 1 {
+	if status != StartTimedOut || attempts != 1 {
 		t.Fatalf("got (%s, %d attempts); want (timed_out, 1)", status, attempts)
 	}
 

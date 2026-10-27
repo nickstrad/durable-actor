@@ -1,5 +1,6 @@
 // Command probe drives SandboxController (actor/controller.go) and
-// SandboxWorker (actor/worker.go) through edge-case timings and orderings that the Day 6 tests do not cover:
+// SandboxWorker (actor/worker.go) through edge-case timings and orderings
+// that the Day 6 tests do not cover:
 // same-instant ties between the deadline, a retry, and a reply; a reply
 // exactly at the deadline; late and duplicate acks; a zero-delay network;
 // retryEvery >= timeout; request IDs reused in different orders; two request
@@ -91,7 +92,7 @@ func main() {
 		w.run(100 * ms)
 		st, n := w.result("r", "s")
 		fmt.Printf("    status=%s attempts=%d starts=%d\n", st, n, w.worker.StartCount("s"))
-		check(st == actor.TimedOut && n == 1, "deadline wins the same-instant tie, as documented")
+		check(st == actor.StartTimedOut && n == 1, "deadline wins the same-instant tie, as documented")
 		note("a reply that lands exactly at the deadline is treated as late; the deadline is exclusive")
 	})
 
@@ -101,7 +102,7 @@ func main() {
 		w.run(100 * ms)
 		st, n := w.result("r", "s")
 		fmt.Printf("    status=%s attempts=%d\n", st, n)
-		check(st == actor.Acknowledged && n == 1, "1ns of slack flips the result to acknowledged")
+		check(st == actor.StartAcknowledged && n == 1, "1ns of slack flips the result to acknowledged")
 	})
 
 	scenario("3. reply arrives exactly when a retry is due (RTT == retryEvery)", func() {
@@ -112,7 +113,7 @@ func main() {
 		w.run(100 * ms)
 		st, n := w.result("r", "s")
 		fmt.Printf("    status=%s attempts=%d starts=%d sends=%d\n", st, n, w.worker.StartCount("s"), w.sends())
-		check(st == actor.Acknowledged && w.worker.StartCount("s") == 1, "ack recorded, no double start")
+		check(st == actor.StartAcknowledged && w.worker.StartCount("s") == 1, "ack recorded, no double start")
 		if n == 2 {
 			note("one spurious retry: the retry fires before the ack that lands at the same instant (attempts=2)")
 		}
@@ -138,7 +139,7 @@ func main() {
 		w.run(1000 * ms)
 		st2, n2 := w.result("r", "s")
 		fmt.Printf("    after late ack: status=%s attempts=%d starts=%d\n", st2, n2, w.worker.StartCount("s"))
-		check(st == actor.TimedOut && st2 == actor.TimedOut && n2 == n, "late ack ignored, no retries after timeout")
+		check(st == actor.StartTimedOut && st2 == actor.StartTimedOut && n2 == n, "late ack ignored, no retries after timeout")
 		note("the controller never learns the sandbox did start; there is no late-ack state and no way to re-drive the request")
 	})
 
@@ -157,7 +158,7 @@ func main() {
 		w.run(500 * ms)
 		st, n := w.result("r", "s")
 		fmt.Printf("    status=%s attempts=%d starts=%d acks=%d\n", st, n, w.worker.StartCount("s"), acks)
-		check(st == actor.Acknowledged && n == 2 && w.worker.StartCount("s") == 1, "second ack is a no-op")
+		check(st == actor.StartAcknowledged && n == 2 && w.worker.StartCount("s") == 1, "second ack is a no-op")
 	})
 
 	scenario("6. zero-delay network: everything resolves at t=0", func() {
@@ -165,11 +166,11 @@ func main() {
 		w.ctrl.Start("r", "s")
 		st, n := w.result("r", "s")
 		fmt.Printf("    before running: status=%s attempts=%d\n", st, n)
-		check(st == actor.Pending && n == 1, "Start sends once and nothing runs until the scheduler does")
+		check(st == actor.StartPending && n == 1, "Start sends once and nothing runs until the scheduler does")
 		w.run(0)
 		st, n = w.result("r", "s")
 		fmt.Printf("    after RunUntil(t=0): status=%s attempts=%d now=%v\n", st, n, w.sched.Now().Sub(w.start))
-		check(st == actor.Acknowledged && n == 1, "acknowledged without advancing time")
+		check(st == actor.StartAcknowledged && n == 1, "acknowledged without advancing time")
 	})
 
 	scenario("7. retryEvery == timeout and retryEvery > timeout", func() {
@@ -182,7 +183,7 @@ func main() {
 			w.run(1000 * ms)
 			st, n := w.result("r", "s")
 			fmt.Printf("    retryEvery=%v timeout=100ms: status=%s attempts=%d\n", re, st, n)
-			check(st == actor.TimedOut && n == 1, "no retry when the first retry is not strictly before the deadline")
+			check(st == actor.StartTimedOut && n == 1, "no retry when the first retry is not strictly before the deadline")
 		}
 	})
 
@@ -200,7 +201,7 @@ func main() {
 		sa, na := w.result("req", "a")
 		sb, nb := w.result("req", "b")
 		fmt.Printf("    a: %s/%d starts=%d   b: %s/%d starts=%d\n", sa, na, w.worker.StartCount("a"), sb, nb, w.worker.StartCount("b"))
-		check(sb == actor.Acknowledged && sa == actor.Rejected && w.worker.StartCount("a") == 0 && w.worker.StartCount("b") == 1,
+		check(sb == actor.StartAcknowledged && sa == actor.StartRejected && w.worker.StartCount("a") == 0 && w.worker.StartCount("b") == 1,
 			"first to reach the worker wins; the controller's Start order does not decide")
 		note("the winner depends on network delay, not on Start order (that is Day 7 territory, but it is already reachable with per-packet delay)")
 	})
@@ -221,7 +222,7 @@ func main() {
 		w.run(400 * ms)
 		sb, nb := w.result("req", "b")
 		fmt.Printf("    a: %s starts=%d   b: %s/%d starts=%d\n", sa, w.worker.StartCount("a"), sb, nb, w.worker.StartCount("b"))
-		check(sa == actor.TimedOut && sb == actor.Rejected && w.worker.StartCount("a") == 1 && w.worker.StartCount("b") == 0,
+		check(sa == actor.StartTimedOut && sb == actor.StartRejected && w.worker.StartCount("a") == 1 && w.worker.StartCount("b") == 0,
 			"worker memory outlives the controller's deadline: the ID stays taken")
 	})
 
@@ -233,7 +234,7 @@ func main() {
 		s1, _ := w.result("req-1", "s")
 		s2, _ := w.result("req-2", "s")
 		fmt.Printf("    req-1: %s  req-2: %s  starts=%d\n", s1, s2, w.worker.StartCount("s"))
-		check(s1 == actor.Acknowledged && s2 == actor.Acknowledged, "both acknowledged")
+		check(s1 == actor.StartAcknowledged && s2 == actor.StartAcknowledged, "both acknowledged")
 		if w.worker.StartCount("s") == 2 {
 			note("idempotency is keyed on request ID only: a new request ID starts the same sandbox again (starts=2). No test pins this down.")
 		}
@@ -266,7 +267,7 @@ func main() {
 		w.run(200 * ms)
 		sb, nb := w.result("req", "b")
 		fmt.Printf("    b: %s attempts=%d conflicts sent=%d starts(b)=%d\n", sb, nb, conflicts, w.worker.StartCount("b"))
-		check(sb == actor.Rejected && nb == 2 && w.worker.StartCount("b") == 0, "retry of a conflicting request is rejected again, never started")
+		check(sb == actor.StartRejected && nb == 2 && w.worker.StartCount("b") == 0, "retry of a conflicting request is rejected again, never started")
 	})
 
 	scenario("13. stray reply for an unknown request", func() {
@@ -278,7 +279,7 @@ func main() {
 		w.run(100 * ms)
 		st, n := w.result("r", "s")
 		fmt.Printf("    status=%s attempts=%d\n", st, n)
-		check(st == actor.Rejected && n == 1, "unknown keys ignored without panic; a forged Conflict for a known key is believed")
+		check(st == actor.StartRejected && n == 1, "unknown keys ignored without panic; a forged Conflict for a known key is believed")
 		note("the controller trusts any reply whose (requestID, sandboxID) it knows; it does not check the sender")
 	})
 
@@ -345,7 +346,7 @@ func main() {
 		w.run(1000 * ms)
 		st, n := w.result("r", "s")
 		fmt.Printf("    status=%s attempts=%d sends=%d\n", st, n, w.sends())
-		check(st == actor.Acknowledged && n == 1 && w.sends() == 2, "exactly one request and one ack on the wire over 1s")
+		check(st == actor.StartAcknowledged && n == 1 && w.sends() == 2, "exactly one request and one ack on the wire over 1s")
 	})
 
 	if bugs > 0 {
