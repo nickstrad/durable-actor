@@ -1,12 +1,6 @@
-// Package actor implements a key-value actor with expiring keys.
 package actor
 
 import "time"
-
-// Clock abstracts the source of time.
-type Clock interface {
-	Now() time.Time
-}
 
 type entry struct {
 	value     string

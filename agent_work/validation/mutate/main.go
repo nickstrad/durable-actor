@@ -55,7 +55,7 @@ const (
 )
 
 var mutants = []mutant{
-	// mailbox.go: handler dispatch (today's change) and pump (older code).
+	// mailbox.go: handler dispatch and pump; kv_mailbox.go: key/value handler.
 	{"MB01 mailbox never calls handler", "mailbox.go", [][2]string{{mbHandle, "\t_ = cmd\n"}}},
 	{"MB02 mailbox calls handler twice", "mailbox.go", [][2]string{{mbHandle, mbHandle + mbHandle}}},
 	{"MB03 mailbox handles in LIFO order", "mailbox.go", [][2]string{{
@@ -67,71 +67,71 @@ var mutants = []mutant{
 		{"\ta.inbox = append(a.inbox, cmd)\n", "\ta.handle(cmd)\n\treturn\n"},
 		{"\tif !a.pumpScheduled {\n\t\ta.pumpScheduled = true\n\t\ta.sched.After(0, a.processOne)\n\t}\n", "\n"}}},
 	{"MB06 NewMailbox allows nil handler", "mailbox.go", [][2]string{{"\tif handle == nil {\n\t\tpanic(\"nil handler\")\n\t}\n", "\n"}}},
-	{"MB07 kv handler: Get reports found=false", "mailbox.go", [][2]string{{"c.Reply(value, found)", "c.Reply(value, found && false)"}}},
-	{"MB08 kv handler: Get reply called even when nil", "mailbox.go", [][2]string{{mbReply, "\t\t\tc.Reply(value, found)\n"}}},
-	{"MB09 kv handler: Put ignores value", "mailbox.go", [][2]string{{"state.Put(c.Key, c.Value, c.TTL)", "state.Put(c.Key, \"\", c.TTL)"}}},
-	{"MB10 kv handler: Put uses a fixed TTL", "mailbox.go", [][2]string{{"state.Put(c.Key, c.Value, c.TTL)", "state.Put(c.Key, c.Value, time.Hour)"}}},
+	{"MB07 kv handler: Get reports found=false", "kv_mailbox.go", [][2]string{{"c.Reply(value, found)", "c.Reply(value, found && false)"}}},
+	{"MB08 kv handler: Get reply called even when nil", "kv_mailbox.go", [][2]string{{mbReply, "\t\t\tc.Reply(value, found)\n"}}},
+	{"MB09 kv handler: Put ignores value", "kv_mailbox.go", [][2]string{{"state.Put(c.Key, c.Value, c.TTL)", "state.Put(c.Key, \"\", c.TTL)"}}},
+	{"MB10 kv handler: Put uses a fixed TTL", "kv_mailbox.go", [][2]string{{"state.Put(c.Key, c.Value, c.TTL)", "state.Put(c.Key, c.Value, time.Hour)"}}},
 
-	// retries.go: worker dedup, conflict, start counting, reply.
-	{"W01 worker never dedups (seen is ignored)", "retries.go", [][2]string{{workerSeen, "if previous, seen := w.handled[req.RequestID]; seen && false {"}}},
-	{"W02 worker never records request ID", "retries.go", [][2]string{{workerStore, "\t\t_ = req.RequestID\n"}}},
-	{"W03 worker never reports conflict", "retries.go", [][2]string{{workerConflict, "\t\tif previous != req.SandboxID && false {\n"}}},
-	{"W04 worker reports conflict on same-sandbox retry (== not !=)", "retries.go", [][2]string{{workerConflict, "\t\tif previous == req.SandboxID {\n"}}},
-	{"W05 worker never counts a start", "retries.go", [][2]string{{workerStart, "w.starts[req.SandboxID] += 0"}}},
-	{"W06 worker counts a start on every request", "retries.go", [][2]string{
+	// worker.go: worker dedup, conflict, start counting, reply.
+	{"W01 worker never dedups (seen is ignored)", "worker.go", [][2]string{{workerSeen, "if previous, seen := w.handled[req.RequestID]; seen && false {"}}},
+	{"W02 worker never records request ID", "worker.go", [][2]string{{workerStore, "\t\t_ = req.RequestID\n"}}},
+	{"W03 worker never reports conflict", "worker.go", [][2]string{{workerConflict, "\t\tif previous != req.SandboxID && false {\n"}}},
+	{"W04 worker reports conflict on same-sandbox retry (== not !=)", "worker.go", [][2]string{{workerConflict, "\t\tif previous == req.SandboxID {\n"}}},
+	{"W05 worker never counts a start", "worker.go", [][2]string{{workerStart, "w.starts[req.SandboxID] += 0"}}},
+	{"W06 worker counts a start on every request", "worker.go", [][2]string{
 		{workerStart, "_ = 0"},
 		{"\tvar reply Command = StartAck{", "\tw.starts[req.SandboxID]++\n\tvar reply Command = StartAck{"}}},
-	{"W07 worker conflict reply names the first sandbox", "retries.go", [][2]string{{
+	{"W07 worker conflict reply names the first sandbox", "worker.go", [][2]string{{
 		"reply = StartConflict{RequestID: req.RequestID, SandboxID: req.SandboxID}",
 		"reply = StartConflict{RequestID: req.RequestID, SandboxID: previous}"}}},
-	{"W08 worker never replies", "retries.go", [][2]string{{workerReply, "\t_ = reply\n"}}},
-	{"W09 worker replies to itself", "retries.go", [][2]string{{workerReply, "\tw.net.Send(w.address, w.address, reply)\n"}}},
-	{"W10 worker dedups on sandbox ID instead of request ID", "retries.go", [][2]string{
+	{"W08 worker never replies", "worker.go", [][2]string{{workerReply, "\t_ = reply\n"}}},
+	{"W09 worker replies to itself", "worker.go", [][2]string{{workerReply, "\tw.net.Send(w.address, w.address, reply)\n"}}},
+	{"W10 worker dedups on sandbox ID instead of request ID", "worker.go", [][2]string{
 		{workerSeen, "if previous, seen := w.handled[req.SandboxID]; seen {"},
 		{workerStore, "\t\tw.handled[req.SandboxID] = req.SandboxID\n"}}},
-	{"W11 worker conflict also starts the sandbox", "retries.go", [][2]string{{workerConflict,
+	{"W11 worker conflict also starts the sandbox", "worker.go", [][2]string{{workerConflict,
 		"\t\tw.starts[req.SandboxID]++\n" + workerConflict}}},
-	{"W12 StartCount caps at 1", "retries.go", [][2]string{{"\treturn w.starts[sandboxID]\n", "\treturn min(w.starts[sandboxID], 1)\n"}}},
-	{"W13 worker acks a conflicting request with the first sandbox's ID", "retries.go", [][2]string{{
+	{"W12 StartCount caps at 1", "worker.go", [][2]string{{"\treturn w.starts[sandboxID]\n", "\treturn min(w.starts[sandboxID], 1)\n"}}},
+	{"W13 worker acks a conflicting request with the first sandbox's ID", "worker.go", [][2]string{{
 		"reply = StartConflict{RequestID: req.RequestID, SandboxID: req.SandboxID}",
 		"reply = StartAck{RequestID: req.RequestID, SandboxID: previous}"}}},
 
-	// retries.go: controller Start, deadline, retry.
-	{"C01 Start is not a no-op for an existing request", "retries.go", [][2]string{{ctrlNoop, "\n"}}},
-	{"C02 Start never registers the request", "retries.go", [][2]string{{"\tc.requests[key] = r\n", "\n"}}},
-	{"C03 deadline never fires (no timeout event)", "retries.go", [][2]string{{ctrlDeadline, "\tc.send(r)\n"}}},
-	{"C04 deadline marks TimedOut regardless of status", "retries.go", [][2]string{{ctrlDeadline,
+	// controller.go: controller Start, deadline, retry.
+	{"C01 Start is not a no-op for an existing request", "controller.go", [][2]string{{ctrlNoop, "\n"}}},
+	{"C02 Start never registers the request", "controller.go", [][2]string{{"\tc.requests[key] = r\n", "\n"}}},
+	{"C03 deadline never fires (no timeout event)", "controller.go", [][2]string{{ctrlDeadline, "\tc.send(r)\n"}}},
+	{"C04 deadline marks TimedOut regardless of status", "controller.go", [][2]string{{ctrlDeadline,
 		"\tc.sched.After(c.timeout, func() {\n\t\tr.status = TimedOut\n\t})\n\n\tc.send(r)\n"}}},
-	{"C05 deadline marks Rejected instead of TimedOut", "retries.go", [][2]string{{"\t\t\tr.status = TimedOut\n", "\t\t\tr.status = Rejected\n"}}},
-	{"C06 deadline uses retryEvery", "retries.go", [][2]string{{"\tc.sched.After(c.timeout, func() {\n", "\tc.sched.After(c.retryEvery, func() {\n"}}},
-	{"C07 deadline scheduled after the first send (reply at deadline wins)", "retries.go", [][2]string{{ctrlDeadline,
+	{"C05 deadline marks Rejected instead of TimedOut", "controller.go", [][2]string{{"\t\t\tr.status = TimedOut\n", "\t\t\tr.status = Rejected\n"}}},
+	{"C06 deadline uses retryEvery", "controller.go", [][2]string{{"\tc.sched.After(c.timeout, func() {\n", "\tc.sched.After(c.retryEvery, func() {\n"}}},
+	{"C07 deadline scheduled after the first send (reply at deadline wins)", "controller.go", [][2]string{{ctrlDeadline,
 		"\tc.send(r)\n\n\tc.sched.After(c.timeout, func() {\n\t\tif r.status == Pending {\n\t\t\tr.status = TimedOut\n\t\t}\n\t})\n"}}},
-	{"C08 deadline is one retry interval longer", "retries.go", [][2]string{{"\tc.sched.After(c.timeout, func() {\n", "\tc.sched.After(c.timeout+c.retryEvery, func() {\n"}}},
-	{"C09 never retries", "retries.go", [][2]string{{ctrlRetry, "\n"}}},
-	{"C10 retries regardless of status", "retries.go", [][2]string{{ctrlRetry, "\tc.sched.After(c.retryEvery, func() {\n\t\tc.send(r)\n\t})\n"}}},
-	{"C11 retries after timeout too (!= Acknowledged)", "retries.go", [][2]string{{ctrlRetry,
+	{"C08 deadline is one retry interval longer", "controller.go", [][2]string{{"\tc.sched.After(c.timeout, func() {\n", "\tc.sched.After(c.timeout+c.retryEvery, func() {\n"}}},
+	{"C09 never retries", "controller.go", [][2]string{{ctrlRetry, "\n"}}},
+	{"C10 retries regardless of status", "controller.go", [][2]string{{ctrlRetry, "\tc.sched.After(c.retryEvery, func() {\n\t\tc.send(r)\n\t})\n"}}},
+	{"C11 retries after timeout too (!= Acknowledged)", "controller.go", [][2]string{{ctrlRetry,
 		"\tc.sched.After(c.retryEvery, func() {\n\t\tif r.status != Acknowledged && r.status != Rejected {\n\t\t\tc.send(r)\n\t\t}\n\t})\n"}}},
-	{"C12 retry interval doubles each attempt", "retries.go", [][2]string{{"\tc.sched.After(c.retryEvery, func() {\n", "\tc.sched.After(c.retryEvery*time.Duration(r.attempts), func() {\n"}}},
-	{"C13 attempts not counted", "retries.go", [][2]string{{"\tr.attempts++\n", "\n"}}},
-	{"C14 attempts not counted for retries", "retries.go", [][2]string{{"\tr.attempts++\n", "\tif r.attempts == 0 {\n\t\tr.attempts++\n\t}\n"}}},
-	{"C15 request sent with ReplyTo = worker", "retries.go", [][2]string{{"\t\tReplyTo:   c.address,\n", "\t\tReplyTo:   c.worker,\n"}}},
-	{"C16 request sent with empty sandbox ID", "retries.go", [][2]string{{"\t\tSandboxID: r.key.sandboxID,\n\t\tReplyTo:", "\t\tSandboxID: \"\",\n\t\tReplyTo:"}}},
+	{"C12 retry interval doubles each attempt", "controller.go", [][2]string{{"\tc.sched.After(c.retryEvery, func() {\n", "\tc.sched.After(c.retryEvery*time.Duration(r.attempts), func() {\n"}}},
+	{"C13 attempts not counted", "controller.go", [][2]string{{"\tr.attempts++\n", "\n"}}},
+	{"C14 attempts not counted for retries", "controller.go", [][2]string{{"\tr.attempts++\n", "\tif r.attempts == 0 {\n\t\tr.attempts++\n\t}\n"}}},
+	{"C15 request sent with ReplyTo = worker", "controller.go", [][2]string{{"\t\tReplyTo:   c.address,\n", "\t\tReplyTo:   c.worker,\n"}}},
+	{"C16 request sent with empty sandbox ID", "controller.go", [][2]string{{"\t\tSandboxID: r.key.sandboxID,\n\t\tReplyTo:", "\t\tSandboxID: \"\",\n\t\tReplyTo:"}}},
 
-	// retries.go: controller receive and Result.
-	{"C17 receive: Ack and Conflict statuses swapped", "retries.go", [][2]string{
+	// controller.go: controller receive and Result.
+	{"C17 receive: Ack and Conflict statuses swapped", "controller.go", [][2]string{
 		{"key, status = requestKey{m.RequestID, m.SandboxID}, Acknowledged", "key, status = requestKey{m.RequestID, m.SandboxID}, Rejected"},
 		{"key, status = requestKey{m.RequestID, m.SandboxID}, Rejected\n\n\tdefault", "key, status = requestKey{m.RequestID, m.SandboxID}, Acknowledged\n\n\tdefault"}}},
-	{"C18 receive: Conflict treated as Ack", "retries.go", [][2]string{{"key, status = requestKey{m.RequestID, m.SandboxID}, Rejected", "key, status = requestKey{m.RequestID, m.SandboxID}, Acknowledged"}}},
-	{"C19 receive: late replies overwrite TimedOut", "retries.go", [][2]string{{ctrlFilter, "\tif !ok {\n\t\treturn\n\t}\n"}}},
-	{"C20 receive: unknown replies dereference nil", "retries.go", [][2]string{{ctrlFilter, "\tif (!ok && false) || r.status != Pending {\n\t\treturn\n\t}\n"}}},
-	{"C21 receive: replies only overwrite TimedOut", "retries.go", [][2]string{{ctrlFilter, "\tif !ok || r.status != Pending && r.status != TimedOut {\n\t\treturn\n\t}\n"}}},
-	{"C22 receive: status never set", "retries.go", [][2]string{{"\tr.status = status\n", "\t_ = status\n"}}},
-	{"C23 receive: Conflict ignored (no case)", "retries.go", [][2]string{{"\tcase StartConflict:\n\t\tkey, status = requestKey{m.RequestID, m.SandboxID}, Rejected\n", "\tcase StartConflict:\n\t\treturn\n"}}},
-	{"C24 Result returns (Pending, 0) for unknown request", "retries.go", [][2]string{{ctrlResultOK, "\tif !ok {\n\t\treturn Pending, 0\n\t}\n"}}},
-	{"C25 Result ignores sandbox ID", "retries.go", [][2]string{{"\tr, ok := c.requests[requestKey{requestID, sandboxID}]\n",
+	{"C18 receive: Conflict treated as Ack", "controller.go", [][2]string{{"key, status = requestKey{m.RequestID, m.SandboxID}, Rejected", "key, status = requestKey{m.RequestID, m.SandboxID}, Acknowledged"}}},
+	{"C19 receive: late replies overwrite TimedOut", "controller.go", [][2]string{{ctrlFilter, "\tif !ok {\n\t\treturn\n\t}\n"}}},
+	{"C20 receive: unknown replies dereference nil", "controller.go", [][2]string{{ctrlFilter, "\tif (!ok && false) || r.status != Pending {\n\t\treturn\n\t}\n"}}},
+	{"C21 receive: replies only overwrite TimedOut", "controller.go", [][2]string{{ctrlFilter, "\tif !ok || r.status != Pending && r.status != TimedOut {\n\t\treturn\n\t}\n"}}},
+	{"C22 receive: status never set", "controller.go", [][2]string{{"\tr.status = status\n", "\t_ = status\n"}}},
+	{"C23 receive: Conflict ignored (no case)", "controller.go", [][2]string{{"\tcase StartConflict:\n\t\tkey, status = requestKey{m.RequestID, m.SandboxID}, Rejected\n", "\tcase StartConflict:\n\t\treturn\n"}}},
+	{"C24 Result returns (Pending, 0) for unknown request", "controller.go", [][2]string{{ctrlResultOK, "\tif !ok {\n\t\treturn Pending, 0\n\t}\n"}}},
+	{"C25 Result ignores sandbox ID", "controller.go", [][2]string{{"\tr, ok := c.requests[requestKey{requestID, sandboxID}]\n",
 		"\tvar r *startRequest\n\tvar ok bool\n\tfor k, v := range c.requests {\n\t\tif k.requestID == requestID && (!ok || k.sandboxID > r.key.sandboxID) {\n\t\t\tr, ok = v, true\n\t\t}\n\t}\n\t_ = sandboxID\n"}}},
-	{"C26 constructor allows non-positive intervals", "retries.go", [][2]string{{"\tif retryEvery <= 0 || timeout <= 0 {\n", "\tif false {\n"}}},
-	{"C27 Start allows empty IDs", "retries.go", [][2]string{{"\tif requestID == \"\" || sandboxID == \"\" {\n", "\tif false {\n"}}},
+	{"C26 constructor allows non-positive intervals", "controller.go", [][2]string{{"\tif retryEvery <= 0 || timeout <= 0 {\n", "\tif false {\n"}}},
+	{"C27 Start allows empty IDs", "controller.go", [][2]string{{"\tif requestID == \"\" || sandboxID == \"\" {\n", "\tif false {\n"}}},
 }
 
 type cell struct {

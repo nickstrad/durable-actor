@@ -27,6 +27,6 @@ new script; reuse or extend an existing one when it fits.
 
 | Script | What it does | Command | Added |
 |--------|--------------|---------|-------|
-| `validation/mutate/` | Mutation testing for `actor/mailbox.go` and `actor/retries.go` on a temp copy: killed/survived table; `-matrix` for per-test unique kills; `-probe` to also run the probe against each mutant. Results in [validation/results.md](validation/results.md). | `go run ./agent_work/validation/mutate` / `go run ./agent_work/validation/mutate -matrix` | 2026-10-26 |
+| `validation/mutate/` | Mutation testing for the `actor/` mailbox, key/value handler, worker, and controller on a temp copy: killed/survived table; `-matrix` for per-test unique kills; `-probe` to also run the probe against each mutant. Results in [validation/results.md](validation/results.md). | `go run ./agent_work/validation/mutate` / `go run ./agent_work/validation/mutate -matrix` | 2026-10-26 |
 | `validation/probe/` | Edge-timing probe for Day 6 retries (reply at deadline, tie with retry, late/duplicate acks, zero delay, `retryEvery >= timeout`, reused IDs, determinism). Prints ok/NOTE/BUG lines. | `go run ./agent_work/validation/probe` | 2026-10-26 |
 | `validation/vlib/` | Shared helpers for the validation scripts (copy repo, replace, go test, list tests). Not run directly. | - | 2026-10-26 |

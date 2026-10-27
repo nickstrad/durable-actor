@@ -1,5 +1,5 @@
-// Command probe drives SandboxController and SandboxWorker (actor/retries.go)
-// through edge-case timings and orderings that the Day 6 tests do not cover:
+// Command probe drives SandboxController (actor/controller.go) and
+// SandboxWorker (actor/worker.go) through edge-case timings and orderings that the Day 6 tests do not cover:
 // same-instant ties between the deadline, a retry, and a reply; a reply
 // exactly at the deadline; late and duplicate acks; a zero-delay network;
 // retryEvery >= timeout; request IDs reused in different orders; two request

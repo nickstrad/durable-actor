@@ -1,32 +1,8 @@
 package actor
 
-import "time"
-
-// Scheduler runs actions at a later point in virtual time.
-// sim.Scheduler implements it.
-type Scheduler interface {
-	Clock
-	After(delay time.Duration, action func())
-}
-
 type Command interface {
 	isCommand()
 }
-
-type PutCommand struct {
-	Key   string
-	Value string
-	TTL   time.Duration
-}
-
-func (PutCommand) isCommand() {}
-
-type GetCommand struct {
-	Key   string
-	Reply func(value string, found bool)
-}
-
-func (GetCommand) isCommand() {}
 
 // MailboxActor processes commands through
 // a scheduler-controlled FIFO mailbox.
@@ -48,27 +24,6 @@ func NewMailbox(sched Scheduler, handle func(Command)) *MailboxActor {
 		sched:  sched,
 		handle: handle,
 	}
-}
-
-// NewMailboxActor returns a mailbox in front of a TTL key/value Actor.
-func NewMailboxActor(sched Scheduler) *MailboxActor {
-	state := NewActor(sched)
-
-	return NewMailbox(sched, func(cmd Command) {
-		switch c := cmd.(type) {
-		case PutCommand:
-			state.Put(c.Key, c.Value, c.TTL)
-
-		case GetCommand:
-			value, found := state.Get(c.Key)
-			if c.Reply != nil {
-				c.Reply(value, found)
-			}
-
-		default:
-			panic("unsupported command")
-		}
-	})
 }
 
 // Send queues a command without executing it.
