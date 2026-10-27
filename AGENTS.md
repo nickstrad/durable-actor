@@ -21,9 +21,10 @@ the history stays readable as a course.
 | 11  | Property-based tests and Go fuzzing    | Discover invariant violations     |
 | 12  | Trace replay and failure minimization  | Reproduce and debug failures      |
 
-**Current position:** Days 1–5 are done (`sim/clock.go`: `ManualClock`; `actor/actor.go`: `Clock`, TTL `Actor`;
+**Current position:** Days 1–6 are done (`sim/clock.go`: `ManualClock`; `actor/actor.go`: `Clock`, TTL `Actor`;
 `sim/scheduler.go`: virtual-time `Scheduler`; `actor/mailbox.go`: `MailboxActor`; `actor/workload_test.go`:
-seeded workload against a reference model; `actor/network.go`: `SimNetwork` with latency and loss).
+seeded workload against a reference model; `actor/network.go`: `SimNetwork` with latency and loss;
+`actor/retries.go`: `SandboxController` retries with deadlines, idempotent `SandboxWorker`).
 Update this line as each day lands.
 
 ## Core design rule: single-threaded simulator

@@ -32,16 +32,43 @@ func (GetCommand) isCommand() {}
 // a scheduler-controlled FIFO mailbox.
 type MailboxActor struct {
 	sched         Scheduler
-	state         *Actor
+	handle        func(Command)
 	inbox         []Command
 	pumpScheduled bool
 }
 
-func NewMailboxActor(sched Scheduler) *MailboxActor {
-	return &MailboxActor{
-		sched: sched,
-		state: NewActor(sched),
+// NewMailbox returns a mailbox that passes each command to handle,
+// one at a time, in arrival order.
+func NewMailbox(sched Scheduler, handle func(Command)) *MailboxActor {
+	if handle == nil {
+		panic("nil handler")
 	}
+
+	return &MailboxActor{
+		sched:  sched,
+		handle: handle,
+	}
+}
+
+// NewMailboxActor returns a mailbox in front of a TTL key/value Actor.
+func NewMailboxActor(sched Scheduler) *MailboxActor {
+	state := NewActor(sched)
+
+	return NewMailbox(sched, func(cmd Command) {
+		switch c := cmd.(type) {
+		case PutCommand:
+			state.Put(c.Key, c.Value, c.TTL)
+
+		case GetCommand:
+			value, found := state.Get(c.Key)
+			if c.Reply != nil {
+				c.Reply(value, found)
+			}
+
+		default:
+			panic("unsupported command")
+		}
+	})
 }
 
 // Send queues a command without executing it.
@@ -59,19 +86,7 @@ func (a *MailboxActor) processOne() {
 	cmd := a.inbox[0]
 	a.inbox = a.inbox[1:]
 
-	switch c := cmd.(type) {
-	case PutCommand:
-		a.state.Put(c.Key, c.Value, c.TTL)
-
-	case GetCommand:
-		value, found := a.state.Get(c.Key)
-		if c.Reply != nil {
-			c.Reply(value, found)
-		}
-
-	default:
-		panic("unsupported command")
-	}
+	a.handle(cmd)
 
 	// Schedule the next command, if any.
 	if len(a.inbox) > 0 {
