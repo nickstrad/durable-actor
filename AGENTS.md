@@ -63,3 +63,11 @@ concurrency is modeled as scheduled events rather than left to uncontrolled goro
 - Run `make check` (gofmt, `go vet`, and `make test`, which runs every test 100 times in
   shuffled order) before finishing any change.
 - Standard library only, unless a day calls for a dependency (e.g. SQLite on Day 10).
+
+## Ad hoc scripts
+
+- Before writing a script to validate, test, debug, or investigate a change, read
+  `agent_work/index.md` and reuse what is there.
+- Put every one-off script in `agent_work/` and add it to the table in `agent_work/index.md`
+  (what it does, exact command, date). Follow the rules at the top of that file.
+- Go for anything non-trivial, bash for basic terminal work. No Python.
